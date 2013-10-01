@@ -10,7 +10,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_SRC_FILES := aml_screen.cpp v4l2_vdin.cpp
 
-LOCAL_SHARED_LIBRARIES:= libutils
+LOCAL_SHARED_LIBRARIES:= libutils liblog
 
 LOCAL_MODULE := screen_source.amlogic
 LOCAL_CFLAGS:= -DLOG_TAG=\"screen_source\"
