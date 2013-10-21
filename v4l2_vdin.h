@@ -41,6 +41,7 @@ struct VideoInfo {
     struct v4l2_buffer buf;
     struct v4l2_requestbuffers rb;
     void *mem[NB_BUFFER];
+    unsigned canvas[NB_BUFFER];
     bool isStreaming;
     int width;
     int height;
@@ -50,20 +51,21 @@ struct VideoInfo {
 
 class vdin_screen_source {
     public:
-    	vdin_screen_source();
-    	~vdin_screen_source();
+        vdin_screen_source();
+        ~vdin_screen_source();
     	
         int start();
         int stop();
         int get_format();
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
-        char * aquire_buffer();
+        int set_rotation(int degree);
+        int aquire_buffer(unsigned* buff_info);
         int release_buffer(char* ptr);
-	private:
-		int mCurrentIndex;
-		KeyedVector<int, int> mBufs;
-		int mCameraHandle;
-		struct VideoInfo *mVideoInfo;
+        private:
+            int mCurrentIndex;
+            KeyedVector<int, int> mBufs;
+            int mCameraHandle;
+            struct VideoInfo *mVideoInfo;
 };
 
 }

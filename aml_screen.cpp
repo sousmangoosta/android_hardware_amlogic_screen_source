@@ -78,17 +78,14 @@ aml_screen_module_t HAL_MODULE_INFO_SYM = {
 
 static int aml_screen_device_close(struct hw_device_t *dev)
 {
-	android::vdin_screen_source* source = NULL;
+    android::vdin_screen_source* source = NULL;
     aml_screen_device_t* ctx = (aml_screen_device_t*)dev;
     if (ctx) {
-    	
-    	if (ctx->priv)
-    	{
-    	    source = (android::vdin_screen_source*)ctx->priv;
-    	    delete source;
-    	    source = NULL;
-    	}
-    	
+        if (ctx->priv){
+            source = (android::vdin_screen_source*)ctx->priv;
+            delete source;
+            source = NULL;
+        }
         free(ctx);
     }
     return 0;
@@ -123,14 +120,18 @@ int screen_source_set_format(struct aml_screen_device* dev, int width, int heigh
         return source->set_format();
     }
 }
-char* screen_source_aquire_buffer(struct aml_screen_device* dev)
+
+int screen_source_set_rotation(struct aml_screen_device* dev, int degree)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-	char * ptr_return;
+    return source->set_rotation(degree);
+}
 
-	ptr_return = source->aquire_buffer();
+int screen_source_aquire_buffer(struct aml_screen_device* dev, unsigned* buff_info)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
 
-    return ptr_return;
+    return source->aquire_buffer(buff_info);
 }
 int screen_source_release_buffer(struct aml_screen_device* dev, char* ptr)
 {
@@ -173,11 +174,12 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->common.module      = const_cast<hw_module_t*>(module);
         dev->common.close       = aml_screen_device_close;
         
-        dev->ops.start          = screen_source_start;
-        dev->ops.stop           = screen_source_stop;
-        dev->ops.get_format     = screen_source_get_format;
-        dev->ops.set_format     = screen_source_set_format;
-        dev->ops.aquire_buffer  = screen_source_aquire_buffer;
+        dev->ops.start = screen_source_start;
+        dev->ops.stop = screen_source_stop;
+        dev->ops.get_format = screen_source_get_format;
+        dev->ops.set_format = screen_source_set_format;
+        dev->ops.set_rotation = screen_source_set_rotation;
+        dev->ops.aquire_buffer = screen_source_aquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         
         *device = &dev->common;
