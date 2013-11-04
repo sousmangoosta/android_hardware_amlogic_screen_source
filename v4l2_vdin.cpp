@@ -42,6 +42,8 @@
 
 namespace android {
 
+#define V4L2_ROTATE_ID 0x980922
+
 vdin_screen_source::vdin_screen_source()
                   : mCameraHandle(-1),
                     mVideoInfo(NULL)
@@ -183,8 +185,29 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
 int vdin_screen_source::set_rotation(int degree)
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
+
     int ret = 0;
-    return ret;
+    struct v4l2_control ctl;
+	
+    if(mCameraHandle<0)
+        return -1;
+
+    if((degree!=0)&&(degree!=90)&&(degree!=180)&&(degree!=270)){
+        ALOGE("Set rotate value invalid: %d.", degree);
+        return -1;
+    }
+	
+    memset( &ctl, 0, sizeof(ctl));
+    ctl.value=degree;
+    ctl.id = V4L2_ROTATE_ID;
+    ret = ioctl(mCameraHandle, VIDIOC_S_CTRL, &ctl);
+	
+    if(ret<0){
+        ALOGE("Set rotate value fail: %s. ret=%d", strerror(errno),ret);
+    }
+	
+    return ret ;
+
 }
 
 
