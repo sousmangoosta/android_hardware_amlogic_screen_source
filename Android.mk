@@ -10,7 +10,17 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_SRC_FILES := aml_screen.cpp v4l2_vdin.cpp
 
-LOCAL_SHARED_LIBRARIES:= libutils liblog
+ifneq (,$(wildcard hardware/amlogic/gralloc))
+	GRALLOC_DIR := hardware/amlogic/gralloc 
+else 
+	GRALLOC_DIR := hardware/libhardware/modules/gralloc
+endif
+
+LOCAL_C_INCLUDES += frameworks/native/include/utils \
+					frameworks/native/include/android \
+					$(GRALLOC_DIR)
+
+LOCAL_SHARED_LIBRARIES:= libutils liblog libui
 
 LOCAL_MODULE := screen_source.amlogic
 LOCAL_CFLAGS:= -DLOG_TAG=\"screen_source\"
