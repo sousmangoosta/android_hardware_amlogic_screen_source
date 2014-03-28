@@ -375,8 +375,7 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
 int vdin_screen_source::set_rotation(int degree)
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
-	if(mOpen == true)
-		return NO_ERROR;
+
     int ret = 0;
     struct v4l2_control ctl;
 	
@@ -423,9 +422,6 @@ int vdin_screen_source::set_frame_rate(int frameRate)
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
     int ret = 0;
     struct v4l2_control ctl;
-	
-    if(mOpen == true)
-        return NO_ERROR;
 	
     if(mCameraHandle<0)
         return -1;
