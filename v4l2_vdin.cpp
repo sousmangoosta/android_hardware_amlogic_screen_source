@@ -125,10 +125,13 @@ vdin_screen_source::vdin_screen_source()
     mCameraHandle = open("/dev/video11", O_RDWR| O_NONBLOCK);
     if (mCameraHandle < 0){
         ALOGE("[%s %d] mCameraHandle:%x", __FUNCTION__, __LINE__, mCameraHandle);
+        return -1;
     }
     mVideoInfo = (struct VideoInfo *) calloc (1, sizeof (struct VideoInfo));
     if (mVideoInfo == NULL){
         ALOGE("[%s %d] no memory for mVideoInfo", __FUNCTION__, __LINE__);
+        close(mCameraHandle);
+        return NO_MEMORY;
     }
     mBufferCount = 4;
     mPixelFormat = V4L2_PIX_FMT_NV21;
