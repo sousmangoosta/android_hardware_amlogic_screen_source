@@ -86,7 +86,7 @@ static int aml_screen_device_close(struct hw_device_t *dev)
     android::vdin_screen_source* source = NULL;
     aml_screen_device_t* ctx = (aml_screen_device_t*)dev;
 
-	android::Mutex::Autolock lock(gAmlScreenLock);	
+    android::Mutex::Autolock lock(gAmlScreenLock);	
     if (ctx) {
         if (ctx->priv){
             source = (android::vdin_screen_source*)ctx->priv;
@@ -95,14 +95,14 @@ static int aml_screen_device_close(struct hw_device_t *dev)
         }
         free(ctx);
     }
-	gAmlScreenOpen--;
+    gAmlScreenOpen--;
     return 0;
 }
 
 int screen_source_start(struct aml_screen_device* dev)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-	LOGV("screen_source_start");
+    LOGV("screen_source_start");
     return source->start();
 }
 int screen_source_stop(struct aml_screen_device* dev)
@@ -211,32 +211,28 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
 {
     int status = -EINVAL;
     android::vdin_screen_source* source = NULL;
-
-	android::Mutex::Autolock lock(gAmlScreenLock);
+    android::Mutex::Autolock lock(gAmlScreenLock);
 	
     LOGV("aml_screen_device_open");
 	
     if (!strcmp(name, AML_SCREEN_SOURCE)) {
-		
-		if(gAmlScreenOpen > 1){
-			ALOGD("aml screen device already open");
-			*device = NULL;
-			return -EINVAL;
-		}
+        if(gAmlScreenOpen > 1){
+            ALOGD("aml screen device already open");
+            *device = NULL;
+            return -EINVAL;
+        }
 		
         aml_screen_device_t *dev = (aml_screen_device_t*)malloc(sizeof(aml_screen_device_t));
         
-        if (!dev)
-        {
-        	LOGE("no memory for the screen source device");
+        if (!dev){
+            LOGE("no memory for the screen source device");
             return -ENOMEM;
         }
         /* initialize handle here */
         memset(dev, 0, sizeof(*dev));
         
         source = new android::vdin_screen_source;
-        if (!source)
-        {
+        if (!source){
             LOGE("no memory for class of vdin_screen_source");
             free (dev);
             return -ENOMEM;
@@ -244,14 +240,14 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->priv = (void*)source;
         
         /* initialize the procs */
-        dev->common.tag         = HARDWARE_DEVICE_TAG;
-        dev->common.version     = 0;
-        dev->common.module      = const_cast<hw_module_t*>(module);
-        dev->common.close       = aml_screen_device_close;
+        dev->common.tag  = HARDWARE_DEVICE_TAG;
+        dev->common.version = 0;
+        dev->common.module = const_cast<hw_module_t*>(module);
+        dev->common.close = aml_screen_device_close;
         
         dev->ops.start = screen_source_start;
         dev->ops.stop = screen_source_stop;
-		dev->ops.pause = screen_source_pause;
+        dev->ops.pause = screen_source_pause;
         dev->ops.get_format = screen_source_get_format;
         dev->ops.set_format = screen_source_set_format;
         dev->ops.set_rotation = screen_source_set_rotation;
@@ -259,16 +255,15 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.aquire_buffer = screen_source_aquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         dev->ops.setStateCallBack = screen_source_set_state_callback;
-		dev->ops.setPreviewWindow = screen_source_set_preview_window;
-		dev->ops.setDataCallBack = screen_source_set_data_callback;
+        dev->ops.setPreviewWindow = screen_source_set_preview_window;
+        dev->ops.setDataCallBack = screen_source_set_data_callback;
         dev->ops.set_frame_rate = screen_source_set_frame_rate;
         dev->ops.set_source_type = screen_source_set_source_type;
         dev->ops.get_source_type = screen_source_get_source_type;
-		// dev->ops.inc_buffer_refcount = screen_source_inc_buffer_refcount;
+        // dev->ops.inc_buffer_refcount = screen_source_inc_buffer_refcount;
         *device = &dev->common;
-        
         status = 0;
-		gAmlScreenOpen++;
+        gAmlScreenOpen++;
     }
     return status;
 }

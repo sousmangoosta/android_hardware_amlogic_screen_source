@@ -45,7 +45,7 @@ struct VideoInfo {
     struct v4l2_requestbuffers rb;
     void *mem[NB_BUFFER];
     unsigned canvas[NB_BUFFER];
-	unsigned refcount[NB_BUFFER];
+    unsigned refcount[NB_BUFFER];
     bool isStreaming;
     int width;
     int height;
@@ -53,20 +53,20 @@ struct VideoInfo {
     int framesizeIn;
 };
 enum State{
-	START,
-	PAUSE,
-	STOP,	
+    START,
+    PAUSE,
+    STOPING,
+    STOP,	
 };
 
 enum FrameType{
-	NATIVE_WINDOW_DATA = 0x1,
-	CALL_BACK_DATA = 0x2,
+    NATIVE_WINDOW_DATA = 0x1,
+    CALL_BACK_DATA = 0x2,
 };
 
 typedef void (*olStateCB)(int state);
 
-typedef void (*app_data_callback)(void *user,
-        int *buffer);
+typedef void (*app_data_callback)(void *user,int *buffer);
 
 #define SCREENSOURCE_GRALLOC_USAGE  GRALLOC_USAGE_HW_TEXTURE | \
                              		GRALLOC_USAGE_HW_RENDER | \
@@ -80,59 +80,59 @@ class vdin_screen_source {
     	
         int start();
         int stop();
-		int pause();
+        int pause();
         int get_format();
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
         int set_rotation(int degree);
         int set_crop(int x, int y, int width, int height);
         int aquire_buffer(int* buff_info);
-		// int inc_buffer_refcount(int* ptr);
+        // int inc_buffer_refcount(int* ptr);
         int release_buffer(int* ptr);
-		int set_state_callback(olStateCB callback);
-		int set_data_callback(app_data_callback callback, void* user);
-		int set_preview_window(ANativeWindow* window);
+        int set_state_callback(olStateCB callback);
+        int set_data_callback(app_data_callback callback, void* user);
+        int set_preview_window(ANativeWindow* window);
         int set_frame_rate(int frameRate);
         int set_source_type(int sourceType);
         int get_source_type();
-	private:
-		int init_native_window();
-		int start_v4l2_device();
-		int workThread();
-	private:
-		class WorkThread : public Thread {
+    private:
+        int init_native_window();
+        int start_v4l2_device();
+        int workThread();
+    private:
+        class WorkThread : public Thread {
             vdin_screen_source* mSource;
-        public:
-            WorkThread(vdin_screen_source* source) :
+            public:
+                WorkThread(vdin_screen_source* source) :
                     Thread(false), mSource(source) { }
-            virtual void onFirstRef() {
-                run("vdin screen source work thread", PRIORITY_URGENT_DISPLAY);
-            }
-            virtual bool threadLoop() {
-                mSource->workThread();
-                // loop until we need to quit
-                return true;
-            }
+                virtual void onFirstRef() {
+                    run("vdin screen source work thread", PRIORITY_URGENT_DISPLAY);
+                }
+                virtual bool threadLoop() {
+                    mSource->workThread();
+                    // loop until we need to quit
+                    return true;
+                }
         };
     private:
-		int mCurrentIndex;
-		KeyedVector<int, int> mBufs;
-		int mBufferCount;
-		int mFrameWidth;
-		int mFrameHeight;
-		int mBufferSize;
-		volatile int mState;
-		olStateCB mSetStateCB;
-		int mPixelFormat;
-		int mNativeWindowPixelFormat;
-		sp<ANativeWindow> mANativeWindow;
-		sp<WorkThread>   mWorkThread;
-		mutable Mutex mLock;
-		int mCameraHandle;
-		struct VideoInfo *mVideoInfo;
-		int mFrameType;
-		app_data_callback mDataCB;
-		bool mOpen;
-		void *mUser;
+        int mCurrentIndex;
+        KeyedVector<int, int> mBufs;
+        int mBufferCount;
+        int mFrameWidth;
+        int mFrameHeight;
+        int mBufferSize;
+        volatile int mState;
+        olStateCB mSetStateCB;
+        int mPixelFormat;
+        int mNativeWindowPixelFormat;
+        sp<ANativeWindow> mANativeWindow;
+        sp<WorkThread>   mWorkThread;
+        mutable Mutex mLock;
+        int mCameraHandle;
+        struct VideoInfo *mVideoInfo;
+        int mFrameType;
+        app_data_callback mDataCB;
+        bool mOpen;
+        void *mUser;
 };
 
 }
