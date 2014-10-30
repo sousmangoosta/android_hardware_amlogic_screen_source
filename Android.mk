@@ -18,6 +18,9 @@ endif
 
 LOCAL_C_INCLUDES += frameworks/native/include/utils \
 					frameworks/native/include/android \
+					system/core/include/utils \
+					system/core/libion/include \
+					system/core/libion/kernel-headers \
 					$(GRALLOC_DIR)
 
 LOCAL_SHARED_LIBRARIES:= libutils liblog libui

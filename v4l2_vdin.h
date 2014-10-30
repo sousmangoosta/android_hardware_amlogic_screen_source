@@ -23,7 +23,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/select.h>
-#include <linux/videodev.h>
+#include <linux/videodev2.h>
 #include <sys/time.h>
 
 #include <utils/KeyedVector.h>
