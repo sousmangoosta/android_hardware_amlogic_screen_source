@@ -7,7 +7,7 @@ LOCAL_PATH := $(call my-dir)
 # HAL module implemenation, not prelinked and stored in
 # /system/lib/hw/screen_source.amlogic.so
 include $(CLEAR_VARS)
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := aml_screen.cpp v4l2_vdin.cpp
 
 ifneq (,$(wildcard hardware/amlogic/gralloc))
