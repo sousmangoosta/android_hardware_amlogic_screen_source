@@ -204,7 +204,7 @@ int vdin_screen_source::start_v4l2_device()
             return -1;
         }
         mVideoInfo->refcount[i] = 0;
-        mBufs.add((int)mVideoInfo->mem[i],i);
+        mBufs.add(mVideoInfo->mem[i],i);
     }
     ALOGV("[%s %d] VIDIOC_QUERYBUF successful", __FUNCTION__, __LINE__);
 
@@ -457,7 +457,7 @@ int vdin_screen_source::get_source_type()
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
     int ret = -1;
     int sourceType;
-	
+
     ret = ioctl(mCameraHandle, VIDIOC_G_INPUT, &sourceType);
     if(ret < 0){
         ALOGE("Set source type fail: %s. ret:%d", strerror(errno),ret);
@@ -466,13 +466,13 @@ int vdin_screen_source::get_source_type()
     return sourceType;
 }
 
-int vdin_screen_source::aquire_buffer(int *buff_info)
-{   
+int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
+{
     ALOGV("%s %d", __FUNCTION__, __LINE__);
-    int ret = -1;	
+    int ret = -1;
     mVideoInfo->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->buf.memory = V4L2_MEMORY_MMAP;
-	
+
     ret = ioctl(mCameraHandle, VIDIOC_DQBUF, &mVideoInfo->buf);
     if (ret < 0) {
         if(EAGAIN == errno){
@@ -480,14 +480,14 @@ int vdin_screen_source::aquire_buffer(int *buff_info)
         }else{
             ALOGE("[%s %d]aquire_buffer %d", __FUNCTION__, __LINE__, ret);
         }
-        buff_info[0] = 0;
-        buff_info[1] = 0;
+        buff_info->buffer_mem    = 0;
+        buff_info->buffer_canvas = 0;
         return ret;
     }
-    buff_info[0] = (unsigned)mVideoInfo->mem[mVideoInfo->buf.index];
-    buff_info[1] = (unsigned)mVideoInfo->canvas[mVideoInfo->buf.index];
-    buff_info[2] = mVideoInfo->buf.timestamp.tv_sec;
-    buff_info[3] = mVideoInfo->buf.timestamp.tv_usec;
+    buff_info->buffer_mem    = mVideoInfo->mem[mVideoInfo->buf.index];
+    buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
+    buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
+    buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
     return ret;
 }
 
@@ -500,16 +500,16 @@ int vdin_screen_source::aquire_buffer(int *buff_info)
 	return true;
 } */
 
-int vdin_screen_source::release_buffer(int* ptr)
+int vdin_screen_source::release_buffer(void* ptr)
 {
     ALOGV("%s %d", __FUNCTION__, __LINE__);
     int ret = -1;
     int currentIndex;
-    v4l2_buffer hbuf_query;   
+    v4l2_buffer hbuf_query;
 
     Mutex::Autolock autoLock(mLock);
 
-    currentIndex = mBufs.valueFor((unsigned int)ptr);
+    currentIndex = mBufs.valueFor(ptr);
     if(mVideoInfo->refcount[currentIndex] > 0){
         mVideoInfo->refcount[currentIndex] -= 1;
     }else{
@@ -589,48 +589,27 @@ int vdin_screen_source::workThread()
 {
     bool buff_keep = false;
     int index;
-    int buff_info[4], buff_info_latest[4];
+    aml_screen_buffer_info_t buff_info;
     int ret;
-    unsigned char *src = NULL;
+    void *src = NULL;
     unsigned char *dest = NULL;
     uint8_t *handle = NULL;
     ANativeWindowBuffer* buf;
     if(mState == START){
         usleep(5000);
-#if 0
-        ret = aquire_buffer(buff_info);
-#else
-        while(mState == START){
-            ret = aquire_buffer(buff_info);
-            if(ret != 0){
-                if(true == buff_keep){//use the latest buffer
-                    memcpy(buff_info, buff_info_latest, 16);
-                    ret = 0;
-                }
-                break;
-            }else{
-                if(true == buff_keep){
-                    //release
-                    ALOGD("v4l2 vdin drop frame");
-                    release_buffer((int *)(buff_info_latest[0]));
-                }
-                buff_keep = true;
-                memcpy(buff_info_latest, buff_info, 16);
-            }
-        }
-#endif
-        if(ret != 0 || (buff_info[0] == 0)){
+        ret = aquire_buffer(&buff_info);
+        if (ret != 0 || (buff_info.buffer_mem == 0)) {
             ALOGV("Get V4l2 buffer failed");
             return ret;
         }
-        src = (unsigned char *)buff_info[0];
-        index = mBufs.valueFor((unsigned int)src);
+        src = buff_info.buffer_mem;
+        index = mBufs.valueFor(src);
         if(mFrameType & NATIVE_WINDOW_DATA){
             mVideoInfo->refcount[index] += 1;
             if(mANativeWindow.get() == NULL){
                 ALOGE("Null window");
                 return BAD_VALUE;
-            }			
+            }
             ret = mANativeWindow->dequeueBuffer_DEPRECATED(mANativeWindow.get(), &buf);
             if(ret != 0){
                 ALOGE("dequeue buffer failed :%s (%d)",strerror(-ret), -ret);
@@ -648,11 +627,11 @@ int vdin_screen_source::workThread()
             mANativeWindow->queueBuffer_DEPRECATED(mANativeWindow.get(), buf);
             graphicBuffer.clear();
             ALOGV("queue one buffer to native window");
-            release_buffer((int*)src);
+            release_buffer(src);
         }
         if(mFrameType & CALL_BACK_DATA && mDataCB != NULL&& mState == START){
             mVideoInfo->refcount[index] += 1;
-            mDataCB(mUser, buff_info);
+            mDataCB(mUser, &buff_info);
         }
     }
     return NO_ERROR;

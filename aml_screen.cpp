@@ -150,14 +150,14 @@ int screen_source_set_crop(struct aml_screen_device* dev, int x, int y, int widt
     return android::BAD_VALUE;
 }
 
-int screen_source_aquire_buffer(struct aml_screen_device* dev, int* buff_info)
+int screen_source_aquire_buffer(struct aml_screen_device* dev, aml_screen_buffer_info_t* buff_info)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
 
     return source->aquire_buffer(buff_info);
 }
 
-int screen_source_release_buffer(struct aml_screen_device* dev, int* ptr)
+int screen_source_release_buffer(struct aml_screen_device* dev, void* ptr)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->release_buffer(ptr);

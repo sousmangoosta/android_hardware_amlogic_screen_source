@@ -34,6 +34,8 @@
 #include <android/native_window.h>
 #include <gralloc_priv.h>
 
+#include <hardware/aml_screen.h>
+
 namespace android {
 
 #define NB_BUFFER 6
@@ -56,7 +58,7 @@ enum State{
     START,
     PAUSE,
     STOPING,
-    STOP,	
+    STOP,
 };
 
 enum FrameType{
@@ -66,18 +68,18 @@ enum FrameType{
 
 typedef void (*olStateCB)(int state);
 
-typedef void (*app_data_callback)(void *user,int *buffer);
+typedef void (*app_data_callback)(void *user, aml_screen_buffer_info_t *buff_info);
 
 #define SCREENSOURCE_GRALLOC_USAGE  GRALLOC_USAGE_HW_TEXTURE | \
-                             		GRALLOC_USAGE_HW_RENDER | \
-                             		GRALLOC_USAGE_SW_READ_RARELY | \
-                             		GRALLOC_USAGE_SW_WRITE_NEVER
+                                    GRALLOC_USAGE_HW_RENDER | \
+                                    GRALLOC_USAGE_SW_READ_RARELY | \
+                                    GRALLOC_USAGE_SW_WRITE_NEVER
 
 class vdin_screen_source {
     public:
         vdin_screen_source();
         ~vdin_screen_source();
-    	int init();
+        int init();
         int start();
         int stop();
         int pause();
@@ -85,9 +87,9 @@ class vdin_screen_source {
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
         int set_rotation(int degree);
         int set_crop(int x, int y, int width, int height);
-        int aquire_buffer(int* buff_info);
+        int aquire_buffer(aml_screen_buffer_info_t *buff_info);
         // int inc_buffer_refcount(int* ptr);
-        int release_buffer(int* ptr);
+        int release_buffer(void* ptr);
         int set_state_callback(olStateCB callback);
         int set_data_callback(app_data_callback callback, void* user);
         int set_preview_window(ANativeWindow* window);
@@ -115,7 +117,7 @@ class vdin_screen_source {
         };
     private:
         int mCurrentIndex;
-        KeyedVector<int, int> mBufs;
+        KeyedVector<void *, int> mBufs;
         int mBufferCount;
         int mFrameWidth;
         int mFrameHeight;
