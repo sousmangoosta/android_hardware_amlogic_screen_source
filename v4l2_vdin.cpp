@@ -423,20 +423,41 @@ int vdin_screen_source::set_frame_rate(int frameRate)
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
     int ret = 0;
     struct v4l2_control ctl;
-	
+
     if(mCameraHandle<0)
         return -1;
-	
-    struct v4l2_streamparm sparm;								
-    memset(&sparm, 0, sizeof( sparm )); 					   
-    sparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;//stream_flag;    
-    sparm.parm.output.timeperframe.denominator = frameRate;		   
-    sparm.parm.output.timeperframe.numerator = 1;			   
-    														   
-    ret = ioctl(mCameraHandle, VIDIOC_S_PARM, &sparm);	
+
+    struct v4l2_streamparm sparm;
+    memset(&sparm, 0, sizeof( sparm ));
+    sparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;//stream_flag;
+    sparm.parm.output.timeperframe.denominator = frameRate;
+    sparm.parm.output.timeperframe.numerator = 1;
+
+    ret = ioctl(mCameraHandle, VIDIOC_S_PARM, &sparm);
     if(ret < 0){
         ALOGE("Set frame rate fail: %s. ret=%d", strerror(errno),ret);
     }
+    return ret ;
+}
+
+int vdin_screen_source::set_amlvideo2_crop(int x, int y, int width, int height)
+{
+    ALOGV("[%s %d]", __FUNCTION__, __LINE__);
+    int ret = 0;
+
+    struct v4l2_crop crop;
+    memset(&crop, 0, sizeof(struct v4l2_crop));
+
+    crop.type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+    crop.c.left = x;
+    crop.c.top = y;
+    crop.c.width = width;
+    crop.c.height = height;
+    ret = ioctl(mCameraHandle, VIDIOC_S_CROP, &crop);
+    if (ret) {
+        ALOGE("Set frame rate fail: %s. ret=%d", strerror(errno),ret);
+    }
+
     return ret ;
 }
 

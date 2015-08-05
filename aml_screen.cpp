@@ -55,7 +55,6 @@
 static unsigned int gAmlScreenOpen = 0;
 static android::Mutex gAmlScreenLock;
 
-
 /*****************************************************************************/
 
 static int aml_screen_device_open(const struct hw_module_t* module, const char* name,
@@ -104,11 +103,13 @@ int screen_source_start(struct aml_screen_device* dev)
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->start();
 }
+
 int screen_source_stop(struct aml_screen_device* dev)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->stop();
 }
+
 int screen_source_pause(struct aml_screen_device* dev)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -120,16 +121,14 @@ int screen_source_get_format(struct aml_screen_device* dev)
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->get_format();
 }
+
 int screen_source_set_format(struct aml_screen_device* dev, int width, int height, int pix_format)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    
-    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) || (pix_format == V4L2_PIX_FMT_YUV420)))
-    {
+
+    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) || (pix_format == V4L2_PIX_FMT_YUV420))) {
         return source->set_format(width, height, pix_format);
-    }
-    else
-    {
+    } else {
         return source->set_format();
     }
 }
@@ -150,6 +149,16 @@ int screen_source_set_crop(struct aml_screen_device* dev, int x, int y, int widt
     return android::BAD_VALUE;
 }
 
+int screen_source_set_amlvideo2_crop(struct aml_screen_device* dev, int x, int y, int width, int height)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+
+    if ((x >= 0) && (y >= 0) && (width > 0) && (height > 0))
+        return source->set_amlvideo2_crop(x, y, width, height);
+
+    return android::BAD_VALUE;
+}
+
 int screen_source_aquire_buffer(struct aml_screen_device* dev, aml_screen_buffer_info_t* buff_info)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -162,16 +171,19 @@ int screen_source_release_buffer(struct aml_screen_device* dev, void* ptr)
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->release_buffer(ptr);
 }
+
 int screen_source_set_state_callback(struct aml_screen_device* dev, olStateCB callback)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->set_state_callback(callback);
 }
+
 int screen_source_set_preview_window(struct aml_screen_device* dev, ANativeWindow* window)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->set_preview_window(window);
 }
+
 int screen_source_set_data_callback(struct aml_screen_device* dev, app_data_callback callback, void* user)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -202,7 +214,6 @@ int screen_source_get_source_type(struct aml_screen_device* dev)
     return source->inc_buffer_refcount(ptr);
 } */
 
-
 /*****************************************************************************/
 
 static int aml_screen_device_open(const struct hw_module_t* module, const char* name,
@@ -211,46 +222,46 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
     int status = -EINVAL;
     android::vdin_screen_source* source = NULL;
     android::Mutex::Autolock lock(gAmlScreenLock);
-	
+
     LOGV("aml_screen_device_open");
-	
+
     if (!strcmp(name, AML_SCREEN_SOURCE)) {
         if(gAmlScreenOpen > 1){
             ALOGD("aml screen device already open");
             *device = NULL;
             return -EINVAL;
         }
-		
+
         aml_screen_device_t *dev = (aml_screen_device_t*)malloc(sizeof(aml_screen_device_t));
-        
-        if (!dev){
+
+        if (!dev) {
             LOGE("no memory for the screen source device");
             return -ENOMEM;
         }
         /* initialize handle here */
         memset(dev, 0, sizeof(*dev));
-        
+
         source = new android::vdin_screen_source;
-        if (!source){
+        if (!source) {
             LOGE("no memory for class of vdin_screen_source");
             free (dev);
             return -ENOMEM;
         }
 
-        if(source->init()!=0){
+        if (source->init()!= 0) {
             LOGE("open vdin_screen_source failed!");
-            free (dev);  
+            free (dev);
             return -1;
         }
 
         dev->priv = (void*)source;
-        
+
         /* initialize the procs */
         dev->common.tag  = HARDWARE_DEVICE_TAG;
         dev->common.version = 0;
         dev->common.module = const_cast<hw_module_t*>(module);
         dev->common.close = aml_screen_device_close;
-        
+
         dev->ops.start = screen_source_start;
         dev->ops.stop = screen_source_stop;
         dev->ops.pause = screen_source_pause;
@@ -258,6 +269,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.set_format = screen_source_set_format;
         dev->ops.set_rotation = screen_source_set_rotation;
         dev->ops.set_crop = screen_source_set_crop;
+        dev->ops.set_amlvideo2_crop = screen_source_set_amlvideo2_crop;
         dev->ops.aquire_buffer = screen_source_aquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
         dev->ops.setStateCallBack = screen_source_set_state_callback;

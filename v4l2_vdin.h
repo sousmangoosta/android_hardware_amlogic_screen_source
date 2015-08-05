@@ -87,6 +87,7 @@ class vdin_screen_source {
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
         int set_rotation(int degree);
         int set_crop(int x, int y, int width, int height);
+        int set_amlvideo2_crop(int x, int y, int width, int height);
         int aquire_buffer(aml_screen_buffer_info_t *buff_info);
         // int inc_buffer_refcount(int* ptr);
         int release_buffer(void* ptr);
