@@ -196,7 +196,7 @@ int vdin_screen_source::start_v4l2_device()
             return ret;
         }
         mVideoInfo->canvas[i] = mVideoInfo->buf.reserved;
-        mVideoInfo->mem[i] = mmap (0, mVideoInfo->buf.length, PROT_READ | PROT_WRITE,
+        mVideoInfo->mem[i] = (long *)mmap (0, mVideoInfo->buf.length, PROT_READ | PROT_WRITE,
                MAP_SHARED, mCameraHandle, mVideoInfo->buf.m.offset);
 
         if (mVideoInfo->mem[i] == MAP_FAILED) {
@@ -521,7 +521,7 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
 	return true;
 } */
 
-int vdin_screen_source::release_buffer(void* ptr)
+int vdin_screen_source::release_buffer(long* ptr)
 {
     ALOGV("%s %d", __FUNCTION__, __LINE__);
     int ret = -1;
@@ -612,7 +612,7 @@ int vdin_screen_source::workThread()
     int index;
     aml_screen_buffer_info_t buff_info;
     int ret;
-    void *src = NULL;
+    long *src = NULL;
     unsigned char *dest = NULL;
     uint8_t *handle = NULL;
     ANativeWindowBuffer* buf;

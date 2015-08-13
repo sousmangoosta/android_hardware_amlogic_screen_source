@@ -45,7 +45,7 @@ struct VideoInfo {
     struct v4l2_format format;
     struct v4l2_buffer buf;
     struct v4l2_requestbuffers rb;
-    void *mem[NB_BUFFER];
+    long *mem[NB_BUFFER];
     unsigned canvas[NB_BUFFER];
     unsigned refcount[NB_BUFFER];
     bool isStreaming;
@@ -90,7 +90,7 @@ class vdin_screen_source {
         int set_amlvideo2_crop(int x, int y, int width, int height);
         int aquire_buffer(aml_screen_buffer_info_t *buff_info);
         // int inc_buffer_refcount(int* ptr);
-        int release_buffer(void* ptr);
+        int release_buffer(long* ptr);
         int set_state_callback(olStateCB callback);
         int set_data_callback(app_data_callback callback, void* user);
         int set_preview_window(ANativeWindow* window);
@@ -118,7 +118,7 @@ class vdin_screen_source {
         };
     private:
         int mCurrentIndex;
-        KeyedVector<void *, int> mBufs;
+        KeyedVector<long *, long> mBufs;
         int mBufferCount;
         int mFrameWidth;
         int mFrameHeight;

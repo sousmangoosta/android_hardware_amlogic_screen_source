@@ -166,7 +166,7 @@ int screen_source_aquire_buffer(struct aml_screen_device* dev, aml_screen_buffer
     return source->aquire_buffer(buff_info);
 }
 
-int screen_source_release_buffer(struct aml_screen_device* dev, void* ptr)
+int screen_source_release_buffer(struct aml_screen_device* dev, long* ptr)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->release_buffer(ptr);
