@@ -23,5 +23,12 @@ LOCAL_SHARED_LIBRARIES:= libutils liblog libui
 
 LOCAL_MODULE := screen_source.amlogic
 LOCAL_CFLAGS:= -DLOG_TAG=\"screen_source\"
+
+ifeq ($(GPU_TYPE),t83x)
+	LOCAL_CFLAGS += -DMALI_AFBC_GRALLOC=1
+else
+	LOCAL_CFLAGS += -DMALI_AFBC_GRALLOC=0
+endif
+
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
