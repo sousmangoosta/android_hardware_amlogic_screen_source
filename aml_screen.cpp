@@ -126,7 +126,9 @@ int screen_source_set_format(struct aml_screen_device* dev, int width, int heigh
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
 
-    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) || (pix_format == V4L2_PIX_FMT_YUV420))) {
+    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) || (pix_format == V4L2_PIX_FMT_YUV420)
+        || (pix_format == V4L2_PIX_FMT_RGB24)
+        || (pix_format == V4L2_PIX_FMT_RGB565X) )) {
         return source->set_format(width, height, pix_format);
     } else {
         return source->set_format();
@@ -208,6 +210,24 @@ int screen_source_get_source_type(struct aml_screen_device* dev)
     return source->get_source_type();
 }
 
+int screen_source_start_v4l2_device(struct aml_screen_device* dev)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+    return source->start_v4l2_device();
+}
+
+int screen_source_stop_v4l2_device(struct aml_screen_device* dev)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+    return source->stop_v4l2_device();
+}
+
+int screen_source_set_port_type(struct aml_screen_device* dev,int sourceType)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+    return source->set_port_type(sourceType);
+}
+
 /* int screen_source_inc_buffer_refcount(struct aml_screen_device* dev, int* ptr)
 {
 	android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -279,6 +299,9 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.set_source_type = screen_source_set_source_type;
         dev->ops.get_source_type = screen_source_get_source_type;
         // dev->ops.inc_buffer_refcount = screen_source_inc_buffer_refcount;
+        dev->ops.start_v4l2_device = screen_source_start_v4l2_device;
+        dev->ops.stop_v4l2_device = screen_source_stop_v4l2_device;
+        dev->ops.set_port_type = screen_source_set_port_type;
         *device = &dev->common;
         status = 0;
         gAmlScreenOpen++;

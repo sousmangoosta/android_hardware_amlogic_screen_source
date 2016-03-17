@@ -97,9 +97,11 @@ class vdin_screen_source {
         int set_frame_rate(int frameRate);
         int set_source_type(int sourceType);
         int get_source_type();
+        int start_v4l2_device();
+        int stop_v4l2_device();
+        int set_port_type(int sourceType);
     private:
         int init_native_window();
-        int start_v4l2_device();
         int workThread();
     private:
         class WorkThread : public Thread {

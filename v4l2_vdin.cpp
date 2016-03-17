@@ -227,6 +227,23 @@ int vdin_screen_source::start_v4l2_device()
     return ret;
 }
 
+int vdin_screen_source::stop_v4l2_device()
+{
+    ALOGE("%s %d", __FUNCTION__, __LINE__);
+    int ret;
+    enum v4l2_buf_type bufType = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    ret = ioctl (mCameraHandle, VIDIOC_STREAMOFF, &bufType);
+    if (ret < 0) {
+        ALOGE("StopStreaming: Unable to stop capture: %s", strerror(errno));
+    }
+    for (int i = 0; i < mBufferCount; i++) {
+        if (munmap(mVideoInfo->mem[i], mVideoInfo->buf.length) < 0) {
+            ALOGE("Unmap failed");
+        }
+    }
+    return ret;
+}
 int vdin_screen_source::start()
 {
     ALOGV("%s %d", __FUNCTION__, __LINE__);
@@ -270,7 +287,7 @@ int vdin_screen_source::pause()
 }
 int vdin_screen_source::stop()
 {	
-    ALOGV("%s %d", __FUNCTION__, __LINE__);
+    ALOGE("!!!!!!!!!%s %d", __FUNCTION__, __LINE__);
     int ret;
     mState = STOPING;
 
@@ -473,6 +490,18 @@ int vdin_screen_source::set_source_type(int sourceType)
     return ret;
 }
 
+int vdin_screen_source::set_port_type(int sourceType)
+    {
+        ALOGD("[%s %d]", __FUNCTION__, __LINE__);
+        int ret = 0;
+        unsigned int portType = (unsigned int)sourceType;
+        ALOGE("portType:%d",portType);
+        ret = ioctl(mCameraHandle, VIDIOC_S_INPUT, &portType);
+        if (ret < 0) {
+            ALOGE("Set port type fail: %s. ret:%d", strerror(errno),ret);
+        }
+        return ret;
+    }
 int vdin_screen_source::get_source_type()
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
@@ -489,7 +518,7 @@ int vdin_screen_source::get_source_type()
 
 int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
 {
-    ALOGV("%s %d", __FUNCTION__, __LINE__);
+        ALOGE("%s %d", __FUNCTION__, __LINE__);
     int ret = -1;
     mVideoInfo->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->buf.memory = V4L2_MEMORY_MMAP;
@@ -503,8 +532,14 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
         }
         buff_info->buffer_mem    = 0;
         buff_info->buffer_canvas = 0;
-        return ret;
+            ALOGE("aquire_buffer %d %d", ret ,__LINE__);
+            return ret;
     }
+
+    if (!(mFrameType & NATIVE_WINDOW_DATA || mFrameType & CALL_BACK_DATA))
+        mVideoInfo->refcount[mVideoInfo->buf.index] += 1;
+
+    ALOGE("%s finish %d ", __FUNCTION__, __LINE__);
     buff_info->buffer_mem    = mVideoInfo->mem[mVideoInfo->buf.index];
     buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
     buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
