@@ -87,6 +87,7 @@ class vdin_screen_source {
         int set_format(int width = 640, int height = 480, int color_format = V4L2_PIX_FMT_NV21);
         int set_rotation(int degree);
         int set_crop(int x, int y, int width, int height);
+        int get_amlvideo2_crop(int *x, int *y, int *width, int *height);
         int set_amlvideo2_crop(int x, int y, int width, int height);
         int aquire_buffer(aml_screen_buffer_info_t *buff_info);
         // int inc_buffer_refcount(int* ptr);
@@ -97,6 +98,8 @@ class vdin_screen_source {
         int set_frame_rate(int frameRate);
         int set_source_type(int sourceType);
         int get_source_type();
+        int  get_current_sourcesize(int * width,int * height);
+        int  set_screen_mode(int  mode);
         int start_v4l2_device();
         int stop_v4l2_device();
         int set_port_type(int sourceType);
@@ -121,6 +124,7 @@ class vdin_screen_source {
     private:
         int mCurrentIndex;
         KeyedVector<long *, long> mBufs;
+        KeyedVector<long *, long> mTemp_Bufs;
         int mBufferCount;
         int mFrameWidth;
         int mFrameHeight;
@@ -138,6 +142,7 @@ class vdin_screen_source {
         app_data_callback mDataCB;
         bool mOpen;
         void *mUser;
+        long * src_temp[4];
 };
 
 }

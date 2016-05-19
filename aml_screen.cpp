@@ -151,6 +151,16 @@ int screen_source_set_crop(struct aml_screen_device* dev, int x, int y, int widt
     return android::BAD_VALUE;
 }
 
+int screen_source_get_amlvideo2_crop(struct aml_screen_device* dev, int *x, int *y, int *width, int *height)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+
+    if ((x != NULL) && (y != NULL) && (width != NULL) && (height != NULL))
+        return source->get_amlvideo2_crop(x, y, width, height);
+
+    return android::BAD_VALUE;
+}
+
 int screen_source_set_amlvideo2_crop(struct aml_screen_device* dev, int x, int y, int width, int height)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -208,6 +218,18 @@ int screen_source_get_source_type(struct aml_screen_device* dev)
 {
     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->get_source_type();
+}
+
+int screen_source_get_current_sourcesize(struct aml_screen_device* dev, int *w, int *h)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+    return source->get_current_sourcesize(w, h);
+}
+
+int screen_source_set_screen_mode(struct aml_screen_device* dev, int  mode)
+{
+    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+    return source->set_screen_mode(mode);
 }
 
 int screen_source_start_v4l2_device(struct aml_screen_device* dev)
@@ -289,6 +311,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.set_format = screen_source_set_format;
         dev->ops.set_rotation = screen_source_set_rotation;
         dev->ops.set_crop = screen_source_set_crop;
+        dev->ops.get_amlvideo2_crop = screen_source_get_amlvideo2_crop;
         dev->ops.set_amlvideo2_crop = screen_source_set_amlvideo2_crop;
         dev->ops.aquire_buffer = screen_source_aquire_buffer;
         dev->ops.release_buffer = screen_source_release_buffer;
@@ -298,6 +321,8 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.set_frame_rate = screen_source_set_frame_rate;
         dev->ops.set_source_type = screen_source_set_source_type;
         dev->ops.get_source_type = screen_source_get_source_type;
+        dev->ops.get_current_sourcesize = screen_source_get_current_sourcesize;
+        dev->ops.set_screen_mode = screen_source_set_screen_mode;
         // dev->ops.inc_buffer_refcount = screen_source_inc_buffer_refcount;
         dev->ops.start_v4l2_device = screen_source_start_v4l2_device;
         dev->ops.stop_v4l2_device = screen_source_stop_v4l2_device;

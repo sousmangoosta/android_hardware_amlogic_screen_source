@@ -53,21 +53,19 @@ namespace android {
         (type *) ((char *) __mptr - (char *)(&((type *)0)->member)); })
 #endif
 
-#define BOUNDRY 32
-
-#define ALIGN(x) (x + (BOUNDRY) - 1)& ~((BOUNDRY) - 1)
+#define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
 
 static size_t getBufSize(int format, int width, int height)
 {
     size_t buf_size = 0;
-	
-    switch(format){
+    switch (format) {
         case V4L2_PIX_FMT_YVU420:
         case V4L2_PIX_FMT_NV21:
             buf_size = width * height * 3 / 2;
             break;
         case V4L2_PIX_FMT_YUYV:
         case V4L2_PIX_FMT_RGB565:
+        case V4L2_PIX_FMT_RGB565X:
             buf_size = width * height * 2;
             break;
         case V4L2_PIX_FMT_RGB24:
@@ -78,9 +76,78 @@ static size_t getBufSize(int format, int width, int height)
             break;
         default:
             ALOGE("Invalid format");
-            buf_size = 0;
-    }		
+            buf_size = width * height * 3 / 2;
+    }
     return buf_size;
+}
+
+static void two_bytes_per_pixel_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height)
+{
+        int stride = (width + 31) & ( ~31);
+        int w, h;
+        for (h=0; h<height; h++)
+        {
+                memcpy( dst, src, width*2);
+                dst += width*2;
+                src += stride*2;
+        }
+}
+
+static void nv21_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height)
+{
+        int stride = (width + 31) & ( ~31);
+        int w, h;
+        for (h=0; h<height*3/2; h++)
+        {
+                memcpy( dst, src, width);
+                dst += width;
+                src += stride;
+        }
+}
+
+static void yv12_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height)
+{
+        int new_width = (width + 63) & ( ~63);
+        int stride;
+        int w, h;
+        for (h=0; h<height; h++)
+        {
+                memcpy( dst, src, width);
+                dst += width;
+                src += new_width;
+        }
+
+        stride = ALIGN(width/2, 16);
+        for (h=0; h<height; h++)
+        {
+                memcpy( dst, src, width/2);
+                dst += stride;
+                src += new_width/2;
+        }
+}
+
+static void rgb24_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height)
+{
+        int stride = (width + 31) & ( ~31);
+        int w, h;
+        for (h=0; h<height; h++)
+        {
+                memcpy( dst, src, width*3);
+                dst += width*3;
+                src += stride*3;
+        }
+}
+
+static void rgb32_memcpy_align32(unsigned char *dst, unsigned char *src, int width, int height)
+{
+        int stride = (width + 31) & ( ~31);
+        int w, h;
+        for (h=0; h<height; h++)
+        {
+                memcpy( dst, src, width*4);
+                dst += width*4;
+                src += stride*4;
+        }
 }
 
 static int  getNativeWindowFormat(int format)
@@ -126,7 +193,7 @@ vdin_screen_source::vdin_screen_source()
 }
 
 int vdin_screen_source::init(){
-	ALOGV("%s %d", __FUNCTION__, __LINE__);
+    ALOGV("%s %d", __FUNCTION__, __LINE__);
     mCameraHandle = open("/dev/video11", O_RDWR| O_NONBLOCK);
     if (mCameraHandle < 0)
     {
@@ -140,7 +207,10 @@ int vdin_screen_source::init(){
         close(mCameraHandle);
         return NO_MEMORY;
     }
-	mBufferCount = 4;
+    mBufferCount = 4;
+    for (int i = 0; i < mBufferCount; i++) {
+        src_temp[i] = NULL;
+    }
     mPixelFormat = V4L2_PIX_FMT_NV21;
     mNativeWindowPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
     mFrameWidth = 1280;
@@ -205,6 +275,9 @@ int vdin_screen_source::start_v4l2_device()
         }
         mVideoInfo->refcount[i] = 0;
         mBufs.add(mVideoInfo->mem[i],i);
+        if (mFrameWidth %32  != 0) {
+            mTemp_Bufs.add(src_temp[i],i);
+        }
     }
     ALOGV("[%s %d] VIDIOC_QUERYBUF successful", __FUNCTION__, __LINE__);
 
@@ -242,6 +315,14 @@ int vdin_screen_source::stop_v4l2_device()
             ALOGE("Unmap failed");
         }
     }
+    mBufs.clear();
+    if (mFrameWidth %32  != 0) {
+        mTemp_Bufs.clear();
+        for (int j = 0; j <mBufferCount; j++ ) {
+            free(src_temp[j]);
+            src_temp[j] = NULL;
+        }
+    }
     return ret;
 }
 int vdin_screen_source::start()
@@ -252,12 +333,12 @@ int vdin_screen_source::start()
         ALOGI("already open");
         return NO_ERROR;
     }
-	
+
     ret = start_v4l2_device();
     if(ret != NO_ERROR){
         ALOGE("Start v4l2 device failed:%d",ret);
         return ret;
-    } 
+    }
     if(mFrameType & NATIVE_WINDOW_DATA){
         ret = init_native_window();
         if(ret != NO_ERROR){
@@ -268,7 +349,7 @@ int vdin_screen_source::start()
     if(mFrameType & NATIVE_WINDOW_DATA || mFrameType & CALL_BACK_DATA){
         ALOGD("Create Work Thread");
         mWorkThread = new WorkThread(this);
-    }	
+    }
     if(mSetStateCB != NULL)
         mSetStateCB(START);
     mState = START;
@@ -369,24 +450,33 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
     if(mOpen == true)
         return NO_ERROR;
     int ret;
-    mVideoInfo->width = ALIGN(width);
+    mVideoInfo->width = width;
     mVideoInfo->height = height;
     mVideoInfo->framesizeIn = (mVideoInfo->width * mVideoInfo->height << 3);      //note color format
     mVideoInfo->formatIn = color_format;
 
     mVideoInfo->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    mVideoInfo->format.fmt.pix.width = ALIGN(width);
+    mVideoInfo->format.fmt.pix.width = width;
     mVideoInfo->format.fmt.pix.height = height;
     mVideoInfo->format.fmt.pix.pixelformat = color_format;
     mPixelFormat = color_format;
     mNativeWindowPixelFormat = getNativeWindowFormat(color_format);
-    mFrameWidth = ALIGN(width);
+    mFrameWidth = width;
     mFrameHeight = height;
     mBufferSize = getBufSize(color_format, mFrameWidth, mFrameHeight);
+    if (mFrameWidth %32  != 0) {
+        for (int i = 0; i < mBufferCount; i++) {
+            src_temp[i] = (long*) malloc(mBufferSize);
+            if (!src_temp[i]) {
+                ALOGE("malloc src_temp buffer failed .\n");
+                return NO_MEMORY;
+            }
+        }
+    }
     ALOGD("mFrameWidth:%d,mFrameHeight:%d",mFrameWidth,mFrameHeight);
     ALOGD("mPixelFormat:%x,mNativeWindowPixelFormat:%x,mBufferSize:%d",mPixelFormat,mNativeWindowPixelFormat,mBufferSize);
     ret = ioctl(mCameraHandle, VIDIOC_S_FMT, &mVideoInfo->format);
-    if (ret < 0) {		
+    if (ret < 0) {
         ALOGE("[%s %d]VIDIOC_S_FMT %d", __FUNCTION__, __LINE__, ret);
         return ret;
     }
@@ -457,6 +547,25 @@ int vdin_screen_source::set_frame_rate(int frameRate)
     return ret ;
 }
 
+int vdin_screen_source::get_amlvideo2_crop(int *x, int *y, int *width, int *height)
+{
+    ALOGV("[%s %d]", __FUNCTION__, __LINE__);
+    int ret = 0;
+
+    struct v4l2_crop crop;
+    memset(&crop, 0, sizeof(struct v4l2_crop));
+    crop.type = V4L2_BUF_TYPE_VIDEO_OVERLAY;
+    ret = ioctl(mCameraHandle, VIDIOC_S_CROP, &crop);
+    if (ret) {
+        ALOGE("get amlvideo2 crop  fail: %s. ret=%d", strerror(errno),ret);
+    }
+    *x = crop.c.left;
+    *y = crop.c.top;
+    *width = crop.c.width;
+    *height = crop.c.height;
+     return ret ;
+}
+
 int vdin_screen_source::set_amlvideo2_crop(int x, int y, int width, int height)
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
@@ -472,7 +581,7 @@ int vdin_screen_source::set_amlvideo2_crop(int x, int y, int width, int height)
     crop.c.height = height;
     ret = ioctl(mCameraHandle, VIDIOC_S_CROP, &crop);
     if (ret) {
-        ALOGE("Set frame rate fail: %s. ret=%d", strerror(errno),ret);
+        ALOGE("Set amlvideo2 crop  fail: %s. ret=%d", strerror(errno),ret);
     }
 
     return ret ;
@@ -516,9 +625,39 @@ int vdin_screen_source::get_source_type()
     return sourceType;
 }
 
+int vdin_screen_source::get_current_sourcesize(int *width,  int *height)
+{
+    int ret = NO_ERROR;
+    struct v4l2_format format;
+    memset(&format, 0,sizeof(struct v4l2_format));
+
+    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    ret = ioctl(mCameraHandle, VIDIOC_G_FMT, &format);
+    if (ret < 0) {
+        ALOGE("Open: VIDIOC_G_FMT Failed: %s", strerror(errno));
+        return ret;
+    }
+    *width = format.fmt.pix.width;
+    *height = format.fmt.pix.height;
+    ALOGD("VIDIOC_G_FMT, w * h: %5d x %5d", *width,  *height);
+    return ret;
+}
+
+int vdin_screen_source::set_screen_mode(int  mode)
+{
+    int ret = NO_ERROR;
+
+    ret = ioctl(mCameraHandle, VIDIOC_S_OUTPUT, &mode);
+    if (ret < 0) {
+        ALOGE("VIDIOC_S_OUTPUT Failed: %s", strerror(errno));
+        return ret;
+    }
+    return ret;
+}
+
 int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
 {
-        ALOGE("%s %d", __FUNCTION__, __LINE__);
+    ALOGE("%s %d", __FUNCTION__, __LINE__);
     int ret = -1;
     mVideoInfo->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->buf.memory = V4L2_MEMORY_MMAP;
@@ -539,11 +678,40 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
     if (!(mFrameType & NATIVE_WINDOW_DATA || mFrameType & CALL_BACK_DATA))
         mVideoInfo->refcount[mVideoInfo->buf.index] += 1;
 
+    if (mFrameWidth %32  != 0) {
+        switch (mVideoInfo->format.fmt.pix.pixelformat) {
+            case V4L2_PIX_FMT_YVU420:
+                yv12_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
+                break;
+            case V4L2_PIX_FMT_NV21:
+                nv21_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
+                break;
+            case V4L2_PIX_FMT_YUYV:
+            case V4L2_PIX_FMT_RGB565:
+            case V4L2_PIX_FMT_RGB565X:
+                two_bytes_per_pixel_memcpy_align32 ((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
+                break;
+            case V4L2_PIX_FMT_RGB24:
+                rgb24_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
+                break;
+            case V4L2_PIX_FMT_RGB32:
+                rgb32_memcpy_align32((unsigned char*)src_temp[mVideoInfo->buf.index], (unsigned char*)mVideoInfo->mem[mVideoInfo->buf.index], mFrameWidth, mFrameHeight);
+                break;
+            default:
+                ALOGE("Invalid format , %s %d " , __FUNCTION__, __LINE__);
+        }
+        buff_info->buffer_mem    = src_temp[mVideoInfo->buf.index];
+        buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
+        buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
+        buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
+    } else {
+        buff_info->buffer_mem    = mVideoInfo->mem[mVideoInfo->buf.index];
+        buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
+        buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
+        buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
+    }
+
     ALOGE("%s finish %d ", __FUNCTION__, __LINE__);
-    buff_info->buffer_mem    = mVideoInfo->mem[mVideoInfo->buf.index];
-    buff_info->buffer_canvas = mVideoInfo->canvas[mVideoInfo->buf.index];
-    buff_info->tv_sec        = mVideoInfo->buf.timestamp.tv_sec;
-    buff_info->tv_usec       = mVideoInfo->buf.timestamp.tv_usec;
     return ret;
 }
 
@@ -564,22 +732,25 @@ int vdin_screen_source::release_buffer(long* ptr)
     v4l2_buffer hbuf_query;
 
     Mutex::Autolock autoLock(mLock);
-
-    currentIndex = mBufs.valueFor(ptr);
-    if(mVideoInfo->refcount[currentIndex] > 0){
+    if (mFrameWidth % 32 != 0) {
+        currentIndex = mTemp_Bufs.valueFor(ptr);
+    } else {
+        currentIndex = mBufs.valueFor(ptr);
+    }
+    if (mVideoInfo->refcount[currentIndex] > 0) {
         mVideoInfo->refcount[currentIndex] -= 1;
-    }else{
+    } else {
         ALOGE("return buffer when refcount already zero");
         return 0;
     }
-    if(mVideoInfo->refcount[currentIndex] == 0){
+    if (mVideoInfo->refcount[currentIndex] == 0) {
         memset(&hbuf_query,0,sizeof(v4l2_buffer));
         hbuf_query.index = currentIndex;
         hbuf_query.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         hbuf_query.memory = V4L2_MEMORY_MMAP;
         ALOGV("return buffer :%d",currentIndex);
         ret = ioctl(mCameraHandle, VIDIOC_QBUF, &hbuf_query);
-        if(ret != 0){
+        if (ret != 0) {
             ALOGE("Return Buffer :%d failed", currentIndex);
         }
     }
