@@ -189,16 +189,25 @@ vdin_screen_source::vdin_screen_source()
                   : mCameraHandle(-1),
                     mVideoInfo(NULL)
 {
-	ALOGV("%s %d", __FUNCTION__, __LINE__);
+    ALOGV("%s %d", __FUNCTION__, __LINE__);
 }
 
-int vdin_screen_source::init(){
+int vdin_screen_source::init(int id){
     ALOGV("%s %d", __FUNCTION__, __LINE__);
-    mCameraHandle = open("/dev/video11", O_RDWR| O_NONBLOCK);
-    if (mCameraHandle < 0)
-    {
-        ALOGE("[%s %d] mCameraHandle:%x [%s]", __FUNCTION__, __LINE__, mCameraHandle,strerror(errno));
-        return -1;
+    if (id == 0) {
+            mCameraHandle = open("/dev/video11", O_RDWR| O_NONBLOCK);
+            if (mCameraHandle < 0)
+            {
+                ALOGE("[%s %d] mCameraHandle:%x [%s]", __FUNCTION__, __LINE__, mCameraHandle,strerror(errno));
+                return -1;
+            }
+    } else {
+            mCameraHandle = open("/dev/video12", O_RDWR| O_NONBLOCK);
+            if (mCameraHandle < 0)
+            {
+                ALOGE("[%s %d] mCameraHandle:%x [%s]", __FUNCTION__, __LINE__, mCameraHandle,strerror(errno));
+                return -1;
+            }
     }
     mVideoInfo = (struct VideoInfo *) calloc (1, sizeof (struct VideoInfo));
     if (mVideoInfo == NULL)

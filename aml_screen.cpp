@@ -52,8 +52,11 @@
 #define LOGI ALOGI
 #endif
 
+#define MAX_DEVICES_SUPPORTED    2
+
 static unsigned int gAmlScreenOpen = 0;
 static android::Mutex gAmlScreenLock;
+static android::vdin_screen_source* gScreenHals[MAX_DEVICES_SUPPORTED];
 
 /*****************************************************************************/
 
@@ -84,175 +87,148 @@ static int aml_screen_device_close(struct hw_device_t *dev)
 {
     android::vdin_screen_source* source = NULL;
     aml_screen_device_t* ctx = (aml_screen_device_t*)dev;
-
-    android::Mutex::Autolock lock(gAmlScreenLock);	
+    android::Mutex::Autolock lock(gAmlScreenLock);
     if (ctx) {
-        if (ctx->priv){
-            source = (android::vdin_screen_source*)ctx->priv;
-            delete source;
-            source = NULL;
+        if (gScreenHals[ctx->device_id]) {
+            delete gScreenHals[ctx->device_id];
+            gScreenHals[ctx->device_id] = NULL;
+            gAmlScreenOpen--;
         }
         free(ctx);
+        ctx = NULL;
     }
-    gAmlScreenOpen--;
     return 0;
 }
 
 int screen_source_start(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->start();
+    return gScreenHals[dev->device_id]->start();
 }
 
 int screen_source_stop(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->stop();
+    return gScreenHals[dev->device_id]->stop();
 }
 
 int screen_source_pause(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->pause();
+    return gScreenHals[dev->device_id]->pause();
 }
 
 int screen_source_get_format(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->get_format();
+    return gScreenHals[dev->device_id]->get_format();
 }
 
 int screen_source_set_format(struct aml_screen_device* dev, int width, int height, int pix_format)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-
-    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) || (pix_format == V4L2_PIX_FMT_YUV420)
-        || (pix_format == V4L2_PIX_FMT_RGB24)
-        || (pix_format == V4L2_PIX_FMT_RGB565X) )) {
-        return source->set_format(width, height, pix_format);
+    if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) ||
+            (pix_format == V4L2_PIX_FMT_YUV420) ||
+            (pix_format == V4L2_PIX_FMT_RGB24) ||
+            (pix_format == V4L2_PIX_FMT_RGB565X) )) {
+                return gScreenHals[dev->device_id]->set_format(width, height, pix_format);
     } else {
-        return source->set_format();
+        return gScreenHals[dev->device_id]->set_format();
     }
 }
 
 int screen_source_set_rotation(struct aml_screen_device* dev, int degree)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_rotation(degree);
+    return gScreenHals[dev->device_id]->set_rotation(degree);
 }
 
 int screen_source_set_crop(struct aml_screen_device* dev, int x, int y, int width, int height)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-
     if ((x >= 0) && (y >= 0) && (width > 0) && (height > 0))
-        return source->set_crop(x, y, width, height);
+        return gScreenHals[dev->device_id]->set_crop(x, y, width, height);
 
     return android::BAD_VALUE;
 }
 
 int screen_source_get_amlvideo2_crop(struct aml_screen_device* dev, int *x, int *y, int *width, int *height)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-
     if ((x != NULL) && (y != NULL) && (width != NULL) && (height != NULL))
-        return source->get_amlvideo2_crop(x, y, width, height);
+        return gScreenHals[dev->device_id]->get_amlvideo2_crop(x, y, width, height);
 
     return android::BAD_VALUE;
 }
 
 int screen_source_set_amlvideo2_crop(struct aml_screen_device* dev, int x, int y, int width, int height)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-
     if ((x >= 0) && (y >= 0) && (width > 0) && (height > 0))
-        return source->set_amlvideo2_crop(x, y, width, height);
+        return gScreenHals[dev->device_id]->set_amlvideo2_crop(x, y, width, height);
 
     return android::BAD_VALUE;
 }
 
 int screen_source_aquire_buffer(struct aml_screen_device* dev, aml_screen_buffer_info_t* buff_info)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-
-    return source->aquire_buffer(buff_info);
+    return gScreenHals[dev->device_id]->aquire_buffer(buff_info);
 }
 
 int screen_source_release_buffer(struct aml_screen_device* dev, long* ptr)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->release_buffer(ptr);
+      return gScreenHals[dev->device_id]->release_buffer(ptr);
 }
 
 int screen_source_set_state_callback(struct aml_screen_device* dev, olStateCB callback)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_state_callback(callback);
+       return gScreenHals[dev->device_id]->set_state_callback(callback);
 }
 
 int screen_source_set_preview_window(struct aml_screen_device* dev, ANativeWindow* window)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_preview_window(window);
+     return gScreenHals[dev->device_id]->set_preview_window(window);
 }
 
 int screen_source_set_data_callback(struct aml_screen_device* dev, app_data_callback callback, void* user)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_data_callback(callback, user);
+      return gScreenHals[dev->device_id]->set_data_callback(callback, user);
 }
 
 int screen_source_set_frame_rate(struct aml_screen_device* dev, int frameRate)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_frame_rate(frameRate);
+       return gScreenHals[dev->device_id]->set_frame_rate(frameRate);
 }
 
 int screen_source_set_source_type(struct aml_screen_device* dev, SOURCETYPE sourceType)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_source_type(sourceType);
+     return gScreenHals[dev->device_id]->set_source_type(sourceType);
 }
 
 int screen_source_get_source_type(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->get_source_type();
+     return gScreenHals[dev->device_id]->get_source_type();
 }
 
 int screen_source_get_current_sourcesize(struct aml_screen_device* dev, int *w, int *h)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->get_current_sourcesize(w, h);
+     return gScreenHals[dev->device_id]->get_current_sourcesize(w, h);
 }
 
 int screen_source_set_screen_mode(struct aml_screen_device* dev, int  mode)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_screen_mode(mode);
+     return gScreenHals[dev->device_id]->set_screen_mode(mode);
 }
 
 int screen_source_start_v4l2_device(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->start_v4l2_device();
+     return gScreenHals[dev->device_id]->start_v4l2_device();
 }
 
 int screen_source_stop_v4l2_device(struct aml_screen_device* dev)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->stop_v4l2_device();
+     return gScreenHals[dev->device_id]->stop_v4l2_device();
 }
 
 int screen_source_set_port_type(struct aml_screen_device* dev,int sourceType)
 {
-    android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
-    return source->set_port_type(sourceType);
+     return gScreenHals[dev->device_id]->set_port_type(sourceType);
 }
 
 /* int screen_source_inc_buffer_refcount(struct aml_screen_device* dev, int* ptr)
 {
-	android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
+     android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
     return source->inc_buffer_refcount(ptr);
 } */
 
@@ -261,15 +237,24 @@ int screen_source_set_port_type(struct aml_screen_device* dev,int sourceType)
 static int aml_screen_device_open(const struct hw_module_t* module, const char* name,
         struct hw_device_t** device)
 {
+    int deviceid;
     int status = -EINVAL;
     android::vdin_screen_source* source = NULL;
     android::Mutex::Autolock lock(gAmlScreenLock);
 
     LOGV("aml_screen_device_open");
 
-    if (!strcmp(name, AML_SCREEN_SOURCE)) {
-        if(gAmlScreenOpen > 1){
+    if (name != NULL) {
+        if (gAmlScreenOpen >=  MAX_DEVICES_SUPPORTED) {
             ALOGD("aml screen device already open");
+            *device = NULL;
+            return -EINVAL;
+        }
+
+        deviceid = atoi(name);
+
+        if (deviceid >=  MAX_DEVICES_SUPPORTED) {
+            ALOGD("provided device id out of bounds , deviceid = %d .\n" , deviceid);
             *device = NULL;
             return -EINVAL;
         }
@@ -277,7 +262,7 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         aml_screen_device_t *dev = (aml_screen_device_t*)malloc(sizeof(aml_screen_device_t));
 
         if (!dev) {
-            LOGE("no memory for the screen source device");
+            ALOGE("no memory for the screen source device");
             return -ENOMEM;
         }
         /* initialize handle here */
@@ -285,14 +270,15 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
 
         source = new android::vdin_screen_source;
         if (!source) {
-            LOGE("no memory for class of vdin_screen_source");
+            ALOGE("no memory for class of vdin_screen_source");
             free (dev);
             return -ENOMEM;
         }
 
-        if (source->init()!= 0) {
-            LOGE("open vdin_screen_source failed!");
+        if (source->init(deviceid)!= 0) {
+            ALOGE("open vdin_screen_source failed!");
             free (dev);
+            delete source;
             return -1;
         }
 
@@ -327,9 +313,11 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.start_v4l2_device = screen_source_start_v4l2_device;
         dev->ops.stop_v4l2_device = screen_source_stop_v4l2_device;
         dev->ops.set_port_type = screen_source_set_port_type;
+        dev->device_id = deviceid;
         *device = &dev->common;
-        status = 0;
+        gScreenHals[deviceid] = source;
         gAmlScreenOpen++;
+        status = 0;
     }
     return status;
 }
