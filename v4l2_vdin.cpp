@@ -217,9 +217,6 @@ int vdin_screen_source::init(int id){
         return NO_MEMORY;
     }
     mBufferCount = 4;
-    for (int i = 0; i < mBufferCount; i++) {
-        src_temp[i] = NULL;
-    }
     mPixelFormat = V4L2_PIX_FMT_NV21;
     mNativeWindowPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
     mFrameWidth = 1280;
@@ -469,6 +466,11 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
     mVideoInfo->format.fmt.pix.height = height;
     mVideoInfo->format.fmt.pix.pixelformat = color_format;
     mPixelFormat = color_format;
+    if (mPixelFormat == V4L2_PIX_FMT_RGB32)
+        mBufferCount = 3;
+    for (int i = 0; i < mBufferCount; i++) {
+        src_temp[i] = NULL;
+    }
     mNativeWindowPixelFormat = getNativeWindowFormat(color_format);
     mFrameWidth = width;
     mFrameHeight = height;

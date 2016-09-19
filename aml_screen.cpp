@@ -125,7 +125,8 @@ int screen_source_set_format(struct aml_screen_device* dev, int width, int heigh
     if ((width > 0) && (height > 0) && ((pix_format == V4L2_PIX_FMT_NV21) ||
             (pix_format == V4L2_PIX_FMT_YUV420) ||
             (pix_format == V4L2_PIX_FMT_RGB24) ||
-            (pix_format == V4L2_PIX_FMT_RGB565X) )) {
+            (pix_format == V4L2_PIX_FMT_RGB565X) ||
+            (pix_format == V4L2_PIX_FMT_RGB32))) {
                 return gScreenHals[dev->device_id]->set_format(width, height, pix_format);
     } else {
         return gScreenHals[dev->device_id]->set_format();
