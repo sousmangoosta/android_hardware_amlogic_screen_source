@@ -192,16 +192,6 @@ int screen_source_set_frame_rate(struct aml_screen_device* dev, int frameRate)
        return gScreenHals[dev->device_id]->set_frame_rate(frameRate);
 }
 
-int screen_source_set_source_type(struct aml_screen_device* dev, SOURCETYPE sourceType)
-{
-     return gScreenHals[dev->device_id]->set_source_type(sourceType);
-}
-
-int screen_source_get_source_type(struct aml_screen_device* dev)
-{
-     return gScreenHals[dev->device_id]->get_source_type();
-}
-
 int screen_source_get_current_sourcesize(struct aml_screen_device* dev, int *w, int *h)
 {
      return gScreenHals[dev->device_id]->get_current_sourcesize(w, h);
@@ -222,9 +212,21 @@ int screen_source_stop_v4l2_device(struct aml_screen_device* dev)
      return gScreenHals[dev->device_id]->stop_v4l2_device();
 }
 
-int screen_source_set_port_type(struct aml_screen_device* dev,int sourceType)
+int screen_source_get_port_type(struct aml_screen_device* dev)
 {
-     return gScreenHals[dev->device_id]->set_port_type(sourceType);
+     return gScreenHals[dev->device_id]->get_port_type();
+}
+/**
+ * set_port_type() parameter description:
+ portType is consisted by 32-bit binary.
+ bit 28 : start tvin service flag, 1 : enable,	0 : disable.
+ bit 24 : vdin device num : 0 or 1, which means use vdin0 or vdin1.
+ bit 15~0 : tvin port type --TVIN_PORT_VIU,TVIN_PORT_HDMI0...
+               (port type define in tvin.h)
+ */
+int screen_source_set_port_type(struct aml_screen_device* dev,unsigned int portType)
+{
+     return gScreenHals[dev->device_id]->set_port_type(portType);
 }
 
 /* int screen_source_inc_buffer_refcount(struct aml_screen_device* dev, int* ptr)
@@ -306,13 +308,12 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.setPreviewWindow = screen_source_set_preview_window;
         dev->ops.setDataCallBack = screen_source_set_data_callback;
         dev->ops.set_frame_rate = screen_source_set_frame_rate;
-        dev->ops.set_source_type = screen_source_set_source_type;
-        dev->ops.get_source_type = screen_source_get_source_type;
         dev->ops.get_current_sourcesize = screen_source_get_current_sourcesize;
         dev->ops.set_screen_mode = screen_source_set_screen_mode;
         // dev->ops.inc_buffer_refcount = screen_source_inc_buffer_refcount;
         dev->ops.start_v4l2_device = screen_source_start_v4l2_device;
         dev->ops.stop_v4l2_device = screen_source_stop_v4l2_device;
+        dev->ops.get_port_type = screen_source_get_port_type;
         dev->ops.set_port_type = screen_source_set_port_type;
         dev->device_id = deviceid;
         *device = &dev->common;

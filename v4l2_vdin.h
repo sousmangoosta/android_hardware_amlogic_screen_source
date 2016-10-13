@@ -74,7 +74,14 @@ typedef void (*app_data_callback)(void *user, aml_screen_buffer_info_t *buff_inf
                                     GRALLOC_USAGE_HW_RENDER | \
                                     GRALLOC_USAGE_SW_READ_RARELY | \
                                     GRALLOC_USAGE_SW_WRITE_NEVER
-
+/**
+ * set_port_type() parameter description:
+ portType is consisted by 32-bit binary.
+ bit 28 : start tvin service flag, 1 : enable,	0 : disable.
+ bit 24 : vdin device num : 0 or 1, which means use vdin0 or vdin1.
+ bit 15~0 : tvin port type --TVIN_PORT_VIU,TVIN_PORT_HDMI0...
+				(port type define in tvin.h)
+ */
 class vdin_screen_source {
     public:
         vdin_screen_source();
@@ -96,13 +103,12 @@ class vdin_screen_source {
         int set_data_callback(app_data_callback callback, void* user);
         int set_preview_window(ANativeWindow* window);
         int set_frame_rate(int frameRate);
-        int set_source_type(int sourceType);
-        int get_source_type();
         int  get_current_sourcesize(int * width,int * height);
         int  set_screen_mode(int  mode);
         int start_v4l2_device();
         int stop_v4l2_device();
-        int set_port_type(int sourceType);
+        int get_port_type();
+        int set_port_type(unsigned int portType);
     private:
         int init_native_window();
         int workThread();

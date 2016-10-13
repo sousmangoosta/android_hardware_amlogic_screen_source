@@ -598,42 +598,38 @@ int vdin_screen_source::set_amlvideo2_crop(int x, int y, int width, int height)
     return ret ;
 }
 
-int vdin_screen_source::set_source_type(int sourceType)
+/**
+ * set_port_type() parameter description:
+ portType is consisted by 32-bit binary.
+ bit 28 : start tvin service flag, 1 : enable,  0 : disable.
+ bit 24 : vdin device num : 0 or 1, which means use vdin0 or vdin1.
+ bit 15~0 : tvin port type --TVIN_PORT_VIU,TVIN_PORT_HDMI0...
+                (port type define in tvin.h)
+ */
+int vdin_screen_source::set_port_type(unsigned int portType)
 {
-    ALOGV("[%s %d]", __FUNCTION__, __LINE__);
+    ALOGD("[%s %d]", __FUNCTION__, __LINE__);
     int ret = 0;
-
-    ret = ioctl(mCameraHandle, VIDIOC_S_INPUT, &sourceType);
-    if(ret < 0){
-        ALOGE("Set source type fail: %s. ret:%d", strerror(errno),ret);
+    ALOGE("portType:%x",portType);
+    ret = ioctl(mCameraHandle, VIDIOC_S_INPUT, &portType);
+    if (ret < 0) {
+        ALOGE("Set port type fail: %s. ret:%d", strerror(errno),ret);
     }
     return ret;
 }
-
-int vdin_screen_source::set_port_type(int sourceType)
-    {
-        ALOGD("[%s %d]", __FUNCTION__, __LINE__);
-        int ret = 0;
-        unsigned int portType = (unsigned int)sourceType;
-        ALOGE("portType:%d",portType);
-        ret = ioctl(mCameraHandle, VIDIOC_S_INPUT, &portType);
-        if (ret < 0) {
-            ALOGE("Set port type fail: %s. ret:%d", strerror(errno),ret);
-        }
-        return ret;
-    }
-int vdin_screen_source::get_source_type()
+int vdin_screen_source::get_port_type()
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
     int ret = -1;
-    int sourceType;
+    int portType;
 
-    ret = ioctl(mCameraHandle, VIDIOC_G_INPUT, &sourceType);
+    ret = ioctl(mCameraHandle, VIDIOC_G_INPUT, &portType);
     if(ret < 0){
-        ALOGE("Set source type fail: %s. ret:%d", strerror(errno),ret);
+        ALOGE("get port type fail: %s. ret:%d", strerror(errno),ret);
         return ret;
     }
-    return sourceType;
+    ALOGE("get portType:%x",portType);
+    return portType;
 }
 
 int vdin_screen_source::get_current_sourcesize(int *width,  int *height)
