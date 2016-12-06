@@ -19,7 +19,7 @@ LOCAL_C_INCLUDES += frameworks/native/include/utils \
 					system/core/libion/kernel-headers \
 					$(MESON_GRALLOC_DIR)
 
-LOCAL_SHARED_LIBRARIES:= libutils liblog libui
+LOCAL_SHARED_LIBRARIES:= libutils liblog libui libcutils
 
 LOCAL_MODULE := screen_source.amlogic
 LOCAL_CFLAGS:= -DLOG_TAG=\"screen_source\"

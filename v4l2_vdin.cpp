@@ -54,7 +54,6 @@ namespace android {
 #endif
 
 #define ALIGN(b,w) (((b)+((w)-1))/(w)*(w))
-
 static size_t getBufSize(int format, int width, int height)
 {
     size_t buf_size = 0;
@@ -192,8 +191,8 @@ vdin_screen_source::vdin_screen_source()
     ALOGV("%s %d", __FUNCTION__, __LINE__);
 }
 
-int vdin_screen_source::init(int id){
-    ALOGV("%s %d", __FUNCTION__, __LINE__);
+int vdin_screen_source::init(int id) {
+    ALOGE("%s %d", __FUNCTION__, __LINE__);
     if (id == 0) {
             mCameraHandle = open("/dev/video11", O_RDWR| O_NONBLOCK);
             if (mCameraHandle < 0)
@@ -216,6 +215,7 @@ int vdin_screen_source::init(int id){
         close(mCameraHandle);
         return NO_MEMORY;
     }
+    mFramecount = 0;
     mBufferCount = 4;
     mPixelFormat = V4L2_PIX_FMT_NV21;
     mNativeWindowPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
@@ -243,17 +243,17 @@ vdin_screen_source::~vdin_screen_source()
 int vdin_screen_source::start_v4l2_device()
 {
     int ret = -1;
-	
+
     ALOGV("[%s %d] mCameraHandle:%x", __FUNCTION__, __LINE__, mCameraHandle);
-	
+
     ioctl(mCameraHandle, VIDIOC_QUERYCAP, &mVideoInfo->cap);
-	
+
     mVideoInfo->rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     mVideoInfo->rb.memory = V4L2_MEMORY_MMAP;
     mVideoInfo->rb.count = mBufferCount;
 
     ret = ioctl(mCameraHandle, VIDIOC_REQBUFS, &mVideoInfo->rb);
-    
+
     if (ret < 0) {
         ALOGE("[%s %d] VIDIOC_REQBUFS:%d mCameraHandle:%x", __FUNCTION__, __LINE__, ret, mCameraHandle);
         return ret;
@@ -299,7 +299,6 @@ int vdin_screen_source::start_v4l2_device()
     }
     enum v4l2_buf_type bufType;
     bufType = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	
     ret = ioctl (mCameraHandle, VIDIOC_STREAMON, &bufType);
 
     ALOGV("[%s %d] VIDIOC_STREAMON:%x", __FUNCTION__, __LINE__, ret);
@@ -373,7 +372,7 @@ int vdin_screen_source::pause()
     return NO_ERROR;
 }
 int vdin_screen_source::stop()
-{	
+{
     ALOGE("!!!!!!!!!%s %d", __FUNCTION__, __LINE__);
     int ret;
     mState = STOPING;
@@ -382,7 +381,7 @@ int vdin_screen_source::stop()
         mWorkThread->requestExitAndWait();
         mWorkThread.clear();
     }
-	
+
     enum v4l2_buf_type bufType = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     ret = ioctl (mCameraHandle, VIDIOC_STREAMOFF, &bufType);
@@ -406,7 +405,7 @@ int vdin_screen_source::set_state_callback(olStateCB callback)
 {
     if (!callback){
         ALOGE("NULL state callback pointer");
-        return BAD_VALUE;	
+        return BAD_VALUE;
     }
     mSetStateCB = callback;
     return NO_ERROR;
@@ -420,7 +419,7 @@ int vdin_screen_source::set_preview_window(ANativeWindow* window)
     //can work without a valid window object ?
     if (window == NULL){
         ALOGD("NULL window object passed to ScreenSource");
-        if(mWorkThread != NULL){
+        if (mWorkThread != NULL) {
             mWorkThread->requestExitAndWait();
             mWorkThread.clear();
         }
@@ -437,7 +436,7 @@ int vdin_screen_source::set_data_callback(app_data_callback callback, void* user
     ALOGV("%s %d", __FUNCTION__, __LINE__);
     if (callback == NULL){
         ALOGE("NULL data callback pointer");
-        return BAD_VALUE;	
+        return BAD_VALUE;
     }
     mDataCB = callback;
     mUser = user;
@@ -450,12 +449,33 @@ int vdin_screen_source::get_format()
     return mPixelFormat;
 }
 
+int vdin_screen_source::set_mode(int displayMode)
+{
+    ALOGE("run into set_mode,displaymode = %d\n", displayMode);
+    mVideoInfo->displaymode = displayMode;
+    m_displaymode = displayMode;
+    return 0;
+}
+
 int vdin_screen_source::set_format(int width, int height, int color_format)
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
-    if(mOpen == true)
+    Mutex::Autolock autoLock(mLock);
+    flex_ratio = 1;
+    if (mVideoInfo->dimming_flag == 1) {
+        flex_ratio = width /64;
+        m_rest = width % 64;
+        m_FrameWidth = 64;
+        m_FrameHeight = 36;
+    }
+    if (mOpen == true)
         return NO_ERROR;
     int ret;
+    if (mVideoInfo->dimming_flag == 1) {
+        flex_original = width/64;
+        width = width /flex_original;
+        height = height /flex_original;
+    }
     mVideoInfo->width = width;
     mVideoInfo->height = height;
     mVideoInfo->framesizeIn = (mVideoInfo->width * mVideoInfo->height << 3);      //note color format
@@ -497,23 +517,20 @@ int vdin_screen_source::set_format(int width, int height, int color_format)
 int vdin_screen_source::set_rotation(int degree)
 {
     ALOGV("[%s %d]", __FUNCTION__, __LINE__);
-
     int ret = 0;
     struct v4l2_control ctl;
-	
     if(mCameraHandle<0)
         return -1;
-
     if((degree!=0)&&(degree!=90)&&(degree!=180)&&(degree!=270)){
         ALOGE("Set rotate value invalid: %d.", degree);
         return -1;
     }
-	
+
     memset( &ctl, 0, sizeof(ctl));
     ctl.value=degree;
     ctl.id = V4L2_ROTATE_ID;
     ret = ioctl(mCameraHandle, VIDIOC_S_CTRL, &ctl);
-	
+
     if(ret<0){
         ALOGE("Set rotate value fail: %s. ret=%d", strerror(errno),ret);
     }
@@ -611,6 +628,7 @@ int vdin_screen_source::set_port_type(unsigned int portType)
     ALOGD("[%s %d]", __FUNCTION__, __LINE__);
     int ret = 0;
     ALOGE("portType:%x",portType);
+    mVideoInfo->dimming_flag = (portType >> 16) & 1;
     ret = ioctl(mCameraHandle, VIDIOC_S_INPUT, &portType);
     if (ret < 0) {
         ALOGE("Set port type fail: %s. ret:%d", strerror(errno),ret);
@@ -650,10 +668,9 @@ int vdin_screen_source::get_current_sourcesize(int *width,  int *height)
     return ret;
 }
 
-int vdin_screen_source::set_screen_mode(int  mode)
+int vdin_screen_source::set_screen_mode(int mode)
 {
     int ret = NO_ERROR;
-
     ret = ioctl(mCameraHandle, VIDIOC_S_OUTPUT, &mode);
     if (ret < 0) {
         ALOGE("VIDIOC_S_OUTPUT Failed: %s", strerror(errno));
@@ -723,12 +740,12 @@ int vdin_screen_source::aquire_buffer(aml_screen_buffer_info_t *buff_info)
 }
 
 /* int vdin_screen_source::inc_buffer_refcount(int *ptr){
-	ALOGV("%s %d", __FUNCTION__, __LINE__);
-	int ret = -1;
-	int index;
-	index = mBufs.valueFor((unsigned int)ptr);
-	mVideoInfo->refcount[index] += 1;
-	return true;
+    ALOGV("%s %d", __FUNCTION__, __LINE__);
+    int ret = -1;
+    int index;
+    index = mBufs.valueFor((unsigned int)ptr);
+    mVideoInfo->refcount[index] += 1;
+    return true;
 } */
 
 int vdin_screen_source::release_buffer(long* ptr)
@@ -768,8 +785,8 @@ int vdin_screen_source::init_native_window()
 {
     ALOGV("%s %d", __FUNCTION__, __LINE__);
     int err = NO_ERROR;
-	
-    if(NULL == mANativeWindow.get())
+
+    if (NULL == mANativeWindow.get())
         return BAD_VALUE;
 
     // Set gralloc usage bits for window.
@@ -784,7 +801,7 @@ int vdin_screen_source::init_native_window()
     }
 
     ALOGD("Number of buffers set to ANativeWindow %d", mBufferCount);
-    ///Set the number of buffers needed for camera preview
+    //Set the number of buffers needed for camera preview
     err = native_window_set_buffer_count(mANativeWindow.get(), mBufferCount);
     if (err != 0) {
         ALOGE("native_window_set_buffer_count failed: %s (%d)", strerror(-err), -err);
@@ -794,13 +811,13 @@ int vdin_screen_source::init_native_window()
         }
         return err;
     }
-	   
+
     ALOGD("native_window_set_buffers_geometry format:0x%x",mNativeWindowPixelFormat);
     // Set window geometry
     err = native_window_set_buffers_geometry(
         mANativeWindow.get(),
-        mFrameWidth,
-        mFrameHeight,
+        mFrameWidth *flex_ratio,
+        mFrameHeight *flex_ratio,
         mNativeWindowPixelFormat);
 
     if (err != 0) {
@@ -819,6 +836,97 @@ int vdin_screen_source::init_native_window()
     return NO_ERROR;
 }
 
+int vdin_screen_source::microdimming(long* src, unsigned char *dest)
+{
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    int m = 0;
+    int n = 0;
+    int r = 0;
+    int m_width = 0;
+    int m_height = 0;
+    int sum = 0;
+    int count_m = 0;
+    int m_block = 0;
+    int map;
+    unsigned char t = 0;
+    int src_off;
+    int dst_off;
+    int _m_width,_m_height, _ratio,_rest;
+    {
+        Mutex::Autolock autoLock(mLock);
+        _m_width = m_FrameWidth;
+        _m_height = m_FrameHeight;
+        _ratio = flex_ratio;
+        _rest = m_rest;
+    }
+    unsigned char* s = (unsigned char *)src;
+    int dest_w = _m_width * _ratio;
+    int dest_h = _m_height* _ratio;
+    unsigned char* d = (unsigned char *)dest;
+    r = mFramecount/30;
+    int  key;
+    key = 64 * 36;
+    map = 0;
+    if (m_displaymode == 1) {
+        switch (r) {
+            case 0:
+                m_width = 8;
+                m_height = 4;
+                break;
+            case 1:
+                m_width = 16;
+                m_height = 9;
+                break;
+            case 2:
+                m_width = 32;
+                m_height = 18;
+                break;
+            case 3:
+                m_width = 64;
+                m_height = 36;
+                break;
+            default:
+                m_width = 64;
+                m_height = 36;
+                break;
+        }
+    }
+    else {
+        m_width = 64;
+        m_height = 36;
+    }
+    memset(dest, 0x00, (mFrameWidth * mFrameHeight * flex_original * flex_original));
+    for (i = 0; i < m_height; i++) {
+        for (j = 0; j < m_width; j++) {
+            dst_off = j * dest_w / m_width;
+            sum = 0;
+            for (m = 0; m < mFrameHeight / m_height; m++) {
+                for (n=0; n < mFrameWidth / m_width; n++) {
+                    map = i * mFrameWidth * mFrameHeight / m_height + m * mFrameWidth + j * mFrameWidth / m_width + n;
+                    k = s[map] * 1.1 + 3;
+                    if (k > 255)
+                        k = 255;
+                    sum = sum + k;
+                }
+            }
+            sum=sum / (key / (m_height * m_width));
+            t = (unsigned char)sum;
+            for (count_m = 0; count_m < dest_h / m_height; count_m++) {
+                memset(d + dst_off + (mFrameWidth * flex_original * count_m), t, sizeof(unsigned char) * dest_w / m_width);
+            }
+        }
+        if (_rest != 0) {
+            for (count_m = 0; count_m < dest_h / m_height; count_m++) {
+                memset(d + dest_w + (mFrameWidth * flex_original * count_m), t, sizeof(unsigned char) * dest_w * _rest / (mFrameWidth * m_width));
+            }
+        }
+        d = d + mFrameWidth * flex_original * dest_h / m_height;
+    }
+    memset(dest+(mFrameWidth * mFrameHeight * flex_original * flex_original), 0x80, (mFrameWidth * mFrameHeight * flex_original * flex_original) / 2);
+    return 0;
+}
 int vdin_screen_source::workThread()
 {
     bool buff_keep = false;
@@ -829,7 +937,7 @@ int vdin_screen_source::workThread()
     unsigned char *dest = NULL;
     uint8_t *handle = NULL;
     ANativeWindowBuffer* buf;
-    if(mState == START){
+    if (mState == START) {
         usleep(5000);
         ret = aquire_buffer(&buff_info);
         if (ret != 0 || (buff_info.buffer_mem == 0)) {
@@ -838,37 +946,40 @@ int vdin_screen_source::workThread()
         }
         src = buff_info.buffer_mem;
         index = mBufs.valueFor(src);
-        if(mFrameType & NATIVE_WINDOW_DATA){
+        if (mFrameType & NATIVE_WINDOW_DATA) {
             mVideoInfo->refcount[index] += 1;
-            if(mANativeWindow.get() == NULL){
+            mFramecount++;
+            if (mANativeWindow.get() == NULL) {
                 ALOGE("Null window");
                 return BAD_VALUE;
             }
             ret = mANativeWindow->dequeueBuffer_DEPRECATED(mANativeWindow.get(), &buf);
-            if(ret != 0){
+            if (ret != 0) {
                 ALOGE("dequeue buffer failed :%s (%d)",strerror(-ret), -ret);
                 return BAD_VALUE;
             }
             mANativeWindow->lockBuffer_DEPRECATED(mANativeWindow.get(), buf);
             sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(buf, false));
             graphicBuffer->lock(SCREENSOURCE_GRALLOC_USAGE, (void **)&dest);
-            if(dest == NULL){
+            if (dest == NULL) {
                 ALOGE("Invalid Gralloc Handle");
                 return BAD_VALUE;
             }
-            memcpy(dest, src, mBufferSize);
+            if (mVideoInfo->dimming_flag == 1)
+                microdimming(src, dest);
+            else
+                memcpy(dest, src, mBufferSize);
             graphicBuffer->unlock();
             mANativeWindow->queueBuffer_DEPRECATED(mANativeWindow.get(), buf);
             graphicBuffer.clear();
             ALOGV("queue one buffer to native window");
             release_buffer(src);
         }
-        if(mFrameType & CALL_BACK_DATA && mDataCB != NULL&& mState == START){
+        if (mFrameType & CALL_BACK_DATA && mDataCB != NULL&& mState == START) {
             mVideoInfo->refcount[index] += 1;
             mDataCB(mUser, &buff_info);
         }
     }
     return NO_ERROR;
 }
-
 }

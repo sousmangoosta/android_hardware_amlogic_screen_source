@@ -53,6 +53,8 @@ struct VideoInfo {
     int height;
     int formatIn;
     int framesizeIn;
+    int displaymode;
+    int dimming_flag;
 };
 enum State{
     START,
@@ -103,12 +105,14 @@ class vdin_screen_source {
         int set_data_callback(app_data_callback callback, void* user);
         int set_preview_window(ANativeWindow* window);
         int set_frame_rate(int frameRate);
-        int  get_current_sourcesize(int * width,int * height);
-        int  set_screen_mode(int  mode);
+        int get_current_sourcesize(int * width,int * height);
+        int set_screen_mode(int mode);
         int start_v4l2_device();
         int stop_v4l2_device();
         int get_port_type();
         int set_port_type(unsigned int portType);
+        int set_mode(int display_mode);
+        int microdimming(long* src, unsigned char *dest);
     private:
         int init_native_window();
         int workThread();
@@ -135,6 +139,13 @@ class vdin_screen_source {
         int mFrameWidth;
         int mFrameHeight;
         int mBufferSize;
+        unsigned int flex_ratio;
+        unsigned int flex_original;
+        int mFramecount = 0;
+        int m_FrameHeight = 0;
+        int m_FrameWidth = 0;
+        int m_rest = 0;
+        int m_displaymode;
         volatile int mState;
         olStateCB mSetStateCB;
         int mPixelFormat;

@@ -229,6 +229,11 @@ int screen_source_set_port_type(struct aml_screen_device* dev,unsigned int portT
      return gScreenHals[dev->device_id]->set_port_type(portType);
 }
 
+int screen_source_set_mode(struct aml_screen_device* dev, int displayMode)
+{
+       return gScreenHals[dev->device_id]->set_mode(displayMode);
+}
+
 /* int screen_source_inc_buffer_refcount(struct aml_screen_device* dev, int* ptr)
 {
      android::vdin_screen_source* source = (android::vdin_screen_source*)dev->priv;
@@ -292,7 +297,6 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->common.version = 0;
         dev->common.module = const_cast<hw_module_t*>(module);
         dev->common.close = aml_screen_device_close;
-
         dev->ops.start = screen_source_start;
         dev->ops.stop = screen_source_stop;
         dev->ops.pause = screen_source_pause;
@@ -315,11 +319,13 @@ static int aml_screen_device_open(const struct hw_module_t* module, const char* 
         dev->ops.stop_v4l2_device = screen_source_stop_v4l2_device;
         dev->ops.get_port_type = screen_source_get_port_type;
         dev->ops.set_port_type = screen_source_set_port_type;
+        dev->ops.set_mode = screen_source_set_mode;
         dev->device_id = deviceid;
         *device = &dev->common;
         gScreenHals[deviceid] = source;
         gAmlScreenOpen++;
         status = 0;
+
     }
     return status;
 }
